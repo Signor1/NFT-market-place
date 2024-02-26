@@ -1,64 +1,75 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MyNFTMarket is ERC721, Ownable {
-    uint256 private tokenIdCounter;
+contract NFTMarketplace is ERC721, Ownable {
+    uint256 public nextTokenId;
 
-    constructor(string memory name, string memory symbol) ERC721(name, symbol) {
-        tokenIdCounter = 0;
+    struct Listing {
+        address seller;
+        uint256 price;
+        bool isForSale;
     }
 
-    function mintNFT(
-        address recipient,
-        string memory tokenURI
-    ) public onlyOwner returns (uint256) {
-        uint256 newTokenId = tokenIdCounter;
+    mapping(uint256 => Listing) public listings;
 
-        _safeMint(recipient, newTokenId);
+    constructor() ERC721("NFTMarketplace", "NFTM") {}
 
-        _setTokenURI(newTokenId, tokenURI);
-
-        tokenIdCounter++;
-
-        return newTokenId;
+    function mint(address to) external onlyOwner {
+        uint256 tokenId = nextTokenId++;
+        _safeMint(to, tokenId);
     }
 
-    function buyNFT(uint256 tokenId) public payable {
+    function buy(uint256 tokenId) external payable {
         require(_exists(tokenId), "Token ID does not exist");
+        require(listings[tokenId].isForSale, "Token is not for sale");
+        require(msg.value >= listings[tokenId].price, "Insufficient funds");
 
-        address owner = ownerOf(tokenId);
+        address seller = listings[tokenId].seller;
+        listings[tokenId].isForSale = false;
+        listings[tokenId].price = 0;
+        _transfer(seller, msg.sender, tokenId);
 
-        require(owner != msg.sender, "You already own this NFT");
-
-        require(msg.value > 0, "Value sent must be greater than 0");
-
-        address payable ownerAddress = payable(owner);
-
-        ownerAddress.transfer(msg.value);
-
-        _transfer(owner, msg.sender, tokenId);
+        payable(seller).transfer(msg.value);
     }
 
-    function listNFTForSale(uint256 tokenId, uint256 price) public {
+    function listForSale(uint256 tokenId, uint256 price) external {
         require(_exists(tokenId), "Token ID does not exist");
-
         require(
             ownerOf(tokenId) == msg.sender,
-            "You are not the owner of this NFT"
+            "You are not the owner of this token"
         );
-        // Additional logic for listing NFT for sale
+
+        listings[tokenId] = Listing({
+            seller: msg.sender,
+            price: price,
+            isForSale: true
+        });
     }
 
-    function removeNFTFromSale(uint256 tokenId) public {
+    function removeListing(uint256 tokenId) external {
         require(_exists(tokenId), "Token ID does not exist");
-
         require(
             ownerOf(tokenId) == msg.sender,
-            "You are not the owner of this NFT"
+            "You are not the owner of this token"
         );
-        // Additional logic for removing NFT from sale
+
+        delete listings[tokenId];
+    }
+
+    function setPrice(uint256 tokenId, uint256 price) external {
+        require(_exists(tokenId), "Token ID does not exist");
+        require(
+            ownerOf(tokenId) == msg.sender,
+            "You are not the owner of this token"
+        );
+
+        listings[tokenId].price = price;
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
     }
 }
