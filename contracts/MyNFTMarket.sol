@@ -28,16 +28,23 @@ contract MyNFTMarket is ERC721, Ownable {
 
     function buyNFT(uint256 tokenId) public payable {
         require(_exists(tokenId), "Token ID does not exist");
+
         address owner = ownerOf(tokenId);
+
         require(owner != msg.sender, "You already own this NFT");
+
         require(msg.value > 0, "Value sent must be greater than 0");
+
         address payable ownerAddress = payable(owner);
+
         ownerAddress.transfer(msg.value);
+
         _transfer(owner, msg.sender, tokenId);
     }
 
     function listNFTForSale(uint256 tokenId, uint256 price) public {
         require(_exists(tokenId), "Token ID does not exist");
+
         require(
             ownerOf(tokenId) == msg.sender,
             "You are not the owner of this NFT"
@@ -47,6 +54,7 @@ contract MyNFTMarket is ERC721, Ownable {
 
     function removeNFTFromSale(uint256 tokenId) public {
         require(_exists(tokenId), "Token ID does not exist");
+
         require(
             ownerOf(tokenId) == msg.sender,
             "You are not the owner of this NFT"
